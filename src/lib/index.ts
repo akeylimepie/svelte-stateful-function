@@ -1,6 +1,7 @@
 import { get, readonly, writable } from 'svelte/store'
 
 type Options = {
+    preCheck?: () => boolean
     onStart?: () => any
     onFinish?: () => any
 }
@@ -20,8 +21,11 @@ export const stateful = function (fn?: () => any, options: Options = {}) {
             if (get(isRunning))
                 return
 
+            if(options.preCheck && !options.preCheck())
+                return
+
             isRunning.set(true)
-            options.onStart?.call(undefined)
+            options.onStart && options.onStart()
 
             try {
                 await fn()
@@ -29,7 +33,7 @@ export const stateful = function (fn?: () => any, options: Options = {}) {
                 throw e
             } finally {
                 isRunning.set(false)
-                options.onFinish?.call(undefined)
+                options.onFinish && options.onFinish()
             }
         }
     }
