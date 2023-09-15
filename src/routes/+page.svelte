@@ -1,8 +1,8 @@
 <script lang="ts">
-    import { lock, observeLock, release } from 'svelte-lock'
+    import { observeLock } from 'svelte-lock'
     import { stateful } from '$lib'
 
-    const group = 'foo'
+    const lockingKey = 'foo'
 
     const { fn: firstHandle, isRunning: isFirstRunning } = stateful(() => {
         return new Promise<void>((resolve) => {
@@ -14,15 +14,10 @@
             }, 1000)
         })
     }, {
-        preCheck: () => allowHandle && !$isLocked,
-        onStart: () => {
-            console.log('first start')
-            lock(group)
-        },
-        onFinish: () => {
-            console.log('first finish')
-            release(group)
-        }
+        lockingKey,
+        preCheck: () => allowHandle,
+        onStart: () => console.log('first start'),
+        onFinish: () => console.log('first finish')
     })
 
     const { fn: secondHandle, isRunning: isSecondRunning } = stateful(() => {
@@ -35,22 +30,17 @@
             }, 1000)
         })
     }, {
+        lockingKey,
         preCheck: () => allowHandle && !$isLocked,
-        onStart: () => {
-            console.log('second start')
-            lock(group)
-        },
-        onFinish: () => {
-            console.log('second finish')
-            release(group)
-        }
+        onStart: () => console.log('second start'),
+        onFinish: () => console.log('second finish')
     })
 
     const { fn: thirdHandle } = stateful(undefined)
 
     let allowHandle = true
 
-    const isLocked = observeLock('group')
+    const isLocked = observeLock(lockingKey)
 </script>
 
 <label>
