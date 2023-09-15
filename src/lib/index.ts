@@ -10,7 +10,7 @@ export const stateful = function (fn?: () => any, options: Options = {}) {
     if (typeof fn === 'undefined')
         return {
             isRunning: undefined,
-            fn: async () => {}
+            fn: undefined
         }
 
     const isRunning = writable(false)
@@ -21,7 +21,7 @@ export const stateful = function (fn?: () => any, options: Options = {}) {
             if (get(isRunning))
                 return
 
-            if(options.preCheck && !options.preCheck())
+            if (options.preCheck && !options.preCheck())
                 return
 
             isRunning.set(true)
