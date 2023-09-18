@@ -4,7 +4,8 @@
 
     const lockingKey = 'foo'
 
-    const { fn: firstHandle, isRunning: isFirstRunning } = stateful(() => {
+    const { fn: firstHandle, isRunning: isFirstRunning } = stateful((e: MouseEvent) => {
+        console.log(e)
         return new Promise<void>((resolve) => {
             console.log('wait')
 
