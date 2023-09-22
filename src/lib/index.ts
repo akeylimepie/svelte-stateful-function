@@ -1,4 +1,4 @@
-import { get, readonly, writable } from 'svelte/store'
+import { get, type Readable, readonly, writable } from 'svelte/store'
 import { isLocked, lock, release } from 'svelte-lock'
 
 type LockingKey = string | string[]
@@ -11,35 +11,30 @@ type Options = {
 }
 
 function doIsLocked (id: LockingKey) {
-    if (Array.isArray(id)) {
-        return id.some(_ => isLocked(_))
-    } else {
-        return isLocked(id)
-    }
+    return Array.isArray(id) ? id.some(_ => isLocked(_)) : isLocked(id)
 }
 
 function doLock (id: LockingKey) {
-    if (Array.isArray(id)) {
-        id.forEach(_ => lock(_))
-    } else {
-        lock(id)
-    }
+    Array.isArray(id) ? id.forEach(_ => lock(_)) : lock(id)
 }
 
 function doRelease (id: LockingKey) {
-    if (Array.isArray(id)) {
-        id.forEach(_ => release(_))
-    } else {
-        release(id)
-    }
+    Array.isArray(id) ? id.forEach(_ => release(_)) : release(id)
 }
 
-export const stateful = function <ArgumentsType extends any[]> (fn?: (...args: ArgumentsType) => any, options: Options = {}) {
+export function stateful (fn: undefined, options?: Options): {
+    isRunning: undefined,
+    fn: undefined
+}
+
+export function stateful<ArgumentsType extends any[]> (fn: (...args: ArgumentsType) => any, options?: Options): {
+    isRunning: Readable<boolean>,
+    fn: (...args: ArgumentsType) => Promise<void>
+}
+
+export function stateful<ArgumentsType extends any[]> (fn?: (...args: ArgumentsType) => any, options: Options = {}) {
     if (typeof fn === 'undefined')
-        return {
-            isRunning: undefined,
-            fn: undefined
-        }
+        return { isRunning: undefined, fn: undefined }
 
     const isRunning = writable(false)
 
@@ -57,14 +52,14 @@ export const stateful = function <ArgumentsType extends any[]> (fn?: (...args: A
 
             isRunning.set(true)
             options.lockingKey && doLock(options.lockingKey)
-            options.onStart && options.onStart()
+            options.onStart?.()
 
             try {
                 await fn(...args)
             } catch (e) {
                 throw e
             } finally {
-                options.onFinish && options.onFinish()
+                options.onFinish?.()
                 options.lockingKey && doRelease(options.lockingKey)
                 isRunning.set(false)
             }

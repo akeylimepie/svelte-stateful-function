@@ -37,7 +37,7 @@
         onFinish: () => console.log('second finish')
     })
 
-    const { fn: thirdHandle } = stateful(undefined)
+    const { fn: thirdHandle, isRunning: isThirdRunning } = stateful(undefined)
 
     let allowHandle = true
 
@@ -61,5 +61,7 @@
 </div>
 
 <div>
-    <button on:click={thirdHandle} disabled={$isLocked}>third (empty)</button>
+    <button on:click={thirdHandle} disabled={$isLocked}>third (empty)
+        {#if $isThirdRunning}(running){/if}
+    </button>
 </div>
