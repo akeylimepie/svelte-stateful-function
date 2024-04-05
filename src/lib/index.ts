@@ -1,6 +1,7 @@
 import { get, type Readable, readonly, writable } from 'svelte/store'
-import { isLocked, lock, release } from 'svelte-lock'
+import { getLocker } from 'svelte-lock'
 
+type Locker = ReturnType<typeof getLocker>
 type LockingKey = string | string[]
 
 type Options = {
@@ -10,16 +11,16 @@ type Options = {
     onFinish?: () => any
 }
 
-function doIsLocked (id: LockingKey) {
-    return Array.isArray(id) ? id.some(_ => isLocked(_)) : isLocked(id)
+function doIsLocked (locker: Locker, id: LockingKey) {
+    return Array.isArray(id) ? id.some(_ => locker.isLocked(_)) : locker.isLocked(id)
 }
 
-function doLock (id: LockingKey) {
-    Array.isArray(id) ? id.forEach(_ => lock(_)) : lock(id)
+function doLock (locker: Locker, id: LockingKey) {
+    Array.isArray(id) ? id.forEach(_ => locker.lock(_)) : locker.lock(id)
 }
 
-function doRelease (id: LockingKey) {
-    Array.isArray(id) ? id.forEach(_ => release(_)) : release(id)
+function doRelease (locker: Locker, id: LockingKey) {
+    Array.isArray(id) ? id.forEach(_ => locker.release(_)) : locker.release(id)
 }
 
 export function stateful (fn: undefined, options?: Options): {
@@ -36,6 +37,7 @@ export function stateful<ArgumentsType extends any[]> (fn?: (...args: ArgumentsT
     if (typeof fn === 'undefined')
         return { isRunning: undefined, fn: undefined }
 
+    const locker = getLocker()
     const isRunning = writable(false)
 
     return {
@@ -44,14 +46,14 @@ export function stateful<ArgumentsType extends any[]> (fn?: (...args: ArgumentsT
             if (get(isRunning))
                 return
 
-            if (options.lockingKey && doIsLocked(options.lockingKey))
+            if (options.lockingKey && doIsLocked(locker, options.lockingKey))
                 return
 
             if (options.preCheck && !options.preCheck())
                 return
 
             isRunning.set(true)
-            options.lockingKey && doLock(options.lockingKey)
+            options.lockingKey && doLock(locker, options.lockingKey)
             options.onStart?.()
 
             try {
@@ -60,7 +62,7 @@ export function stateful<ArgumentsType extends any[]> (fn?: (...args: ArgumentsT
                 throw e
             } finally {
                 options.onFinish?.()
-                options.lockingKey && doRelease(options.lockingKey)
+                options.lockingKey && doRelease(locker, options.lockingKey)
                 isRunning.set(false)
             }
         }

@@ -1,7 +1,10 @@
 <script lang="ts">
-    import { observeLock } from 'svelte-lock'
+    import { initLockContext, getLocker } from 'svelte-lock'
     import { stateful } from '$lib'
 
+    initLockContext()
+
+    const locker = getLocker()
     const lockingKey = 'foo'
 
     const { fn: firstHandle, isRunning: isFirstRunning } = stateful((e: MouseEvent) => {
@@ -21,7 +24,8 @@
         onFinish: () => console.log('first finish')
     })
 
-    const { fn: secondHandle, isRunning: isSecondRunning } = stateful(() => {
+    const { fn: secondHandle, isRunning: isSecondRunning } = stateful((e: MouseEvent) => {
+        console.log(e)
         return new Promise<void>((resolve) => {
             console.log('wait')
 
@@ -32,7 +36,7 @@
         })
     }, {
         lockingKey,
-        preCheck: () => allowHandle && !$isLocked,
+        preCheck: () => allowHandle,
         onStart: () => console.log('second start'),
         onFinish: () => console.log('second finish')
     })
@@ -41,7 +45,7 @@
 
     let allowHandle = true
 
-    const isLocked = observeLock(lockingKey)
+    const isLocked = locker.observe(lockingKey)
 </script>
 
 <label>
@@ -49,19 +53,22 @@
 </label>
 
 <div>
-    <button on:click={firstHandle} disabled={$isLocked}>first
+    <button on:click={firstHandle}>first
+        {#if $isLocked}(locked){/if}
         {#if $isFirstRunning}(running){/if}
     </button>
 </div>
 
 <div>
     <button on:click={secondHandle} disabled={$isLocked}>second
+        {#if $isLocked}(locked){/if}
         {#if $isSecondRunning}(running){/if}
     </button>
 </div>
 
 <div>
     <button on:click={thirdHandle} disabled={$isLocked}>third (empty)
+        {#if $isLocked}(locked){/if}
         {#if $isThirdRunning}(running){/if}
     </button>
 </div>
