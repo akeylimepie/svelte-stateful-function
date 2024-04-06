@@ -1,30 +1,35 @@
 <script lang="ts">
-    import { initLockContext, getLocker } from 'svelte-lock'
+    import { getLocker, initLockContext } from 'svelte-lock'
     import { stateful } from '$lib'
+    import Button from './Button.svelte'
 
     initLockContext()
 
     const locker = getLocker()
-    const lockingKey = 'foo'
 
-    const { fn: firstHandle, isRunning: isFirstRunning } = stateful((e: MouseEvent) => {
+    const commonKey = Symbol()
+    const lockKey = Symbol()
+
+    const { fn: firstHandle, isRunning: isFirstRunning, isLocked: isFirstLocked } = stateful((e: MouseEvent) => {
         console.log(e)
-        return new Promise<void>((resolve) => {
+        return new Promise<Date>((resolve) => {
             console.log('wait')
 
             setTimeout(() => {
                 console.log('done')
-                resolve()
+                resolve(new Date())
             }, 1000)
+        }).then((result) => {
+            console.log(result)
         })
     }, {
-        lockingKey,
-        preCheck: () => allowHandle,
-        onStart: () => console.log('first start'),
-        onFinish: () => console.log('first finish')
+        lock: [lockKey],
+        lockedBy: [commonKey],
+        onStart: () => {console.log('first start')},
+        onFinish: () => {console.log('first finish')}
     })
 
-    const { fn: secondHandle, isRunning: isSecondRunning } = stateful((e: MouseEvent) => {
+    const { fn: secondHandle, isRunning: isSecondRunning, isLocked: isSecondLocked } = stateful((e: MouseEvent) => {
         console.log(e)
         return new Promise<void>((resolve) => {
             console.log('wait')
@@ -35,17 +40,19 @@
             }, 1000)
         })
     }, {
-        lockingKey,
-        preCheck: () => allowHandle,
+        lock: [lockKey],
+        lockedBy: [commonKey],
         onStart: () => console.log('second start'),
         onFinish: () => console.log('second finish')
     })
 
-    const { fn: thirdHandle, isRunning: isThirdRunning } = stateful(undefined)
-
     let allowHandle = true
 
-    const isLocked = locker.observe(lockingKey)
+    $: if(allowHandle){
+        locker.release([commonKey])
+    } else {
+        locker.lock([commonKey])
+    }
 </script>
 
 <label>
@@ -53,22 +60,9 @@
 </label>
 
 <div>
-    <button on:click={firstHandle}>first
-        {#if $isLocked}(locked){/if}
-        {#if $isFirstRunning}(running){/if}
-    </button>
+    <Button locked={$isFirstLocked} running={$isFirstRunning} handle={firstHandle}>first</Button>
 </div>
 
 <div>
-    <button on:click={secondHandle} disabled={$isLocked}>second
-        {#if $isLocked}(locked){/if}
-        {#if $isSecondRunning}(running){/if}
-    </button>
-</div>
-
-<div>
-    <button on:click={thirdHandle} disabled={$isLocked}>third (empty)
-        {#if $isLocked}(locked){/if}
-        {#if $isThirdRunning}(running){/if}
-    </button>
+    <Button locked={$isSecondLocked} running={$isSecondRunning} handle={secondHandle}>second</Button>
 </div>

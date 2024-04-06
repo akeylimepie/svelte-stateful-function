@@ -1,69 +1,52 @@
-import { get, type Readable, readonly, writable } from 'svelte/store'
-import { getLocker } from 'svelte-lock'
-
-type Locker = ReturnType<typeof getLocker>
-type LockingKey = string | string[]
+import { readonly } from 'svelte/store'
+import { getLocker, type LockKey } from 'svelte-lock'
 
 type Options = {
-    lockingKey?: LockingKey
-    preCheck?: () => boolean
+    lock?: LockKey[]
+    lockedBy?: LockKey[]
     onStart?: () => any
-    onFinish?: () => any
+    onFinish?: () => any,
 }
 
-function doIsLocked (locker: Locker, id: LockingKey) {
-    return Array.isArray(id) ? id.some(_ => locker.isLocked(_)) : locker.isLocked(id)
-}
-
-function doLock (locker: Locker, id: LockingKey) {
-    Array.isArray(id) ? id.forEach(_ => locker.lock(_)) : locker.lock(id)
-}
-
-function doRelease (locker: Locker, id: LockingKey) {
-    Array.isArray(id) ? id.forEach(_ => locker.release(_)) : locker.release(id)
-}
-
-export function stateful (fn: undefined, options?: Options): {
-    isRunning: undefined,
-    fn: undefined
-}
-
-export function stateful<ArgumentsType extends any[]> (fn: (...args: ArgumentsType) => any, options?: Options): {
-    isRunning: Readable<boolean>,
-    fn: (...args: ArgumentsType) => Promise<void>
-}
-
-export function stateful<ArgumentsType extends any[]> (fn?: (...args: ArgumentsType) => any, options: Options = {}) {
-    if (typeof fn === 'undefined')
-        return { isRunning: undefined, fn: undefined }
-
+export function stateful<ArgumentsType extends any[]> (fn: (...args: ArgumentsType) => Promise<void>, options: Options = {}) {
     const locker = getLocker()
-    const isRunning = writable(false)
+
+    const primaryKey = Symbol()
+    const lockKeys = [...(options.lock || []), primaryKey]
+    const observedKeys = [...lockKeys, ...(options.lockedBy || [])]
+
+    const isLocked = locker.observe(observedKeys)
+    const isRunning = locker.observe([primaryKey])
 
     return {
+        isLocked: readonly(isLocked),
         isRunning: readonly(isRunning),
         fn: async (...args: ArgumentsType) => {
-            if (get(isRunning))
+            if (locker.isLocked(observedKeys))
                 return
 
-            if (options.lockingKey && doIsLocked(locker, options.lockingKey))
-                return
+            const release = locker.lock(lockKeys)
 
-            if (options.preCheck && !options.preCheck())
-                return
-
-            isRunning.set(true)
-            options.lockingKey && doLock(locker, options.lockingKey)
-            options.onStart?.()
+            try {
+                options.onStart?.()
+            } catch (e) {
+                release()
+                throw e
+            }
 
             try {
                 await fn(...args)
             } catch (e) {
+                release()
+                throw e
+            }
+
+            try {
+                options.onFinish?.()
+            } catch (e) {
                 throw e
             } finally {
-                options.onFinish?.()
-                options.lockingKey && doRelease(locker, options.lockingKey)
-                isRunning.set(false)
+                release()
             }
         }
     }
