@@ -10,12 +10,20 @@
     const commonKey = Symbol()
     const lockKey = Symbol()
 
-    const { fn: firstHandle, isRunning: isFirstRunning, isLocked: isFirstLocked } = stateful((e: MouseEvent) => {
+    const {
+        fn: firstHandle,
+        isRunning: isFirstRunning,
+        isLocked: isFirstLocked,
+        runKey: firstRunKey
+    } = stateful((e: MouseEvent) => {
         console.log(e)
-        return new Promise<Date>((resolve) => {
+        return new Promise<Date>((resolve, reject) => {
             console.log('wait')
 
             setTimeout(() => {
+                if (failure)
+                    reject()
+
                 console.log('done')
                 resolve(new Date())
             }, 1000)
@@ -26,10 +34,17 @@
         lock: [lockKey],
         lockedBy: [commonKey],
         onStart: () => {console.log('first start')},
-        onFinish: () => {console.log('first finish')}
+        onFinish: () => {console.log('first finish')},
+        onSuccess: () => {console.log('first success')},
+        onFailure: () => {console.log('first failure')},
     })
 
-    const { fn: secondHandle, isRunning: isSecondRunning, isLocked: isSecondLocked } = stateful((e: MouseEvent) => {
+    const {
+        fn: secondHandle,
+        isRunning: isSecondRunning,
+        isLocked: isSecondLocked,
+        runKey: secondRunKey
+    } = stateful((e: MouseEvent) => {
         console.log(e)
         return new Promise<void>((resolve) => {
             console.log('wait')
@@ -47,8 +62,9 @@
     })
 
     let allowHandle = true
+    let failure = false
 
-    $: if(allowHandle){
+    $: if (allowHandle) {
         locker.release([commonKey])
     } else {
         locker.lock([commonKey])
@@ -59,10 +75,18 @@
     <input type="checkbox" bind:checked={allowHandle}> allow handle
 </label>
 
+<label>
+    <input type="checkbox" bind:checked={failure}> failure
+</label>
+
 <div>
-    <Button locked={$isFirstLocked} running={$isFirstRunning} handle={firstHandle}>first</Button>
+    <Button locked={$isFirstLocked} running={$isFirstRunning} handle={firstHandle}
+            runKey={firstRunKey}>first
+    </Button>
 </div>
 
 <div>
-    <Button locked={$isSecondLocked} running={$isSecondRunning} handle={secondHandle}>second</Button>
+    <Button locked={$isSecondLocked} running={$isSecondRunning} handle={secondHandle}
+            runKey={secondRunKey}>second
+    </Button>
 </div>

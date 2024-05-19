@@ -6,21 +6,24 @@ type Options = {
     lockedBy?: LockKey[]
     onStart?: () => any
     onFinish?: () => any,
+    onSuccess?: () => any,
+    onFailure?: () => any,
 }
 
 export function stateful<ArgumentsType extends any[]> (fn: (...args: ArgumentsType) => Promise<void>, options: Options = {}) {
     const locker = getLocker()
 
-    const primaryKey = Symbol()
-    const lockKeys = [...(options.lock || []), primaryKey]
+    const runKey = Symbol()
+    const lockKeys = [...(options.lock || []), runKey]
     const observedKeys = [...lockKeys, ...(options.lockedBy || [])]
 
     const isLocked = locker.observe(observedKeys)
-    const isRunning = locker.observe([primaryKey])
+    const isRunning = locker.observe([runKey])
 
     return {
         isLocked: readonly(isLocked),
         isRunning: readonly(isRunning),
+        runKey,
         fn: async (...args: ArgumentsType) => {
             if (locker.isLocked(observedKeys))
                 return
@@ -36,8 +39,10 @@ export function stateful<ArgumentsType extends any[]> (fn: (...args: ArgumentsTy
 
             try {
                 await fn(...args)
+                options.onSuccess?.()
             } catch (e) {
                 release()
+                options.onFailure?.()
                 throw e
             }
 
