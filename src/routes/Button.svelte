@@ -1,6 +1,7 @@
 <script lang="ts">
     import type { MouseEventHandler } from 'svelte/elements'
     import { getLocker, type LockKey } from 'svelte-lock'
+    import { writable } from 'svelte/store'
 
     export let locked = false
     export let running = false
@@ -9,7 +10,10 @@
 
     const locker = getLocker()
 
-    const isRunningByKey = locker.observe([runKey])
+    const lockingKeys = writable([runKey])
+    $: $lockingKeys = [runKey]
+
+    const isRunningByKey = locker.observe(lockingKeys)
 </script>
 <button on:click={handle}>
     <slot/>

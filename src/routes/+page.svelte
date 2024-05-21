@@ -2,6 +2,7 @@
     import { getLocker, initLockContext } from 'svelte-lock'
     import { stateful } from '$lib'
     import Button from './Button.svelte'
+    import OtherButton from './OtherButton.svelte'
 
     initLockContext()
 
@@ -11,7 +12,7 @@
     const lockKey = Symbol()
 
     const {
-        fn: firstHandle,
+        handle: firstHandle,
         isRunning: isFirstRunning,
         isLocked: isFirstLocked,
         runKey: firstRunKey
@@ -40,11 +41,28 @@
     })
 
     const {
-        fn: secondHandle,
+        handle: secondHandle,
         isRunning: isSecondRunning,
         isLocked: isSecondLocked,
         runKey: secondRunKey
     } = stateful((e: MouseEvent) => {
+        console.log(e)
+        return new Promise<void>((resolve) => {
+            console.log('wait')
+
+            setTimeout(() => {
+                console.log('done')
+                resolve()
+            }, 1000)
+        })
+    }, {
+        lock: [lockKey],
+        lockedBy: [commonKey],
+        onStart: () => console.log('second start'),
+        onFinish: () => console.log('second finish')
+    })
+
+    const third = stateful((e: MouseEvent) => {
         console.log(e)
         return new Promise<void>((resolve) => {
             console.log('wait')
@@ -69,6 +87,22 @@
     } else {
         locker.lock([commonKey])
     }
+
+    let firstThirdLockKey = Symbol()
+    let secondThirdLockKey = Symbol()
+
+    let lockThird = false
+    let swapLockThird = false
+
+    let thirdLockKey = swapLockThird ? secondThirdLockKey : firstThirdLockKey
+
+    $: if (lockThird) {
+        locker.lock([firstThirdLockKey])
+    } else {
+        locker.release([firstThirdLockKey])
+    }
+
+    $: thirdLockKey = swapLockThird ? secondThirdLockKey : firstThirdLockKey
 </script>
 
 <label>
@@ -84,9 +118,20 @@
             runKey={firstRunKey}>first
     </Button>
 </div>
-
 <div>
     <Button locked={$isSecondLocked} running={$isSecondRunning} handle={secondHandle}
-            runKey={secondRunKey}>second
+            runKey={secondRunKey}>first
     </Button>
+</div>
+
+<label>
+    <input type="checkbox" bind:checked={lockThird}> lock original third
+</label>
+
+<label>
+    <input type="checkbox" bind:checked={swapLockThird}> swap third locking key
+</label>
+
+<div>
+    <OtherButton lockedBy={thirdLockKey}>third</OtherButton>
 </div>
