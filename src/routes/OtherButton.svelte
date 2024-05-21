@@ -1,14 +1,11 @@
 <script lang="ts">
     import type { MouseEventHandler } from 'svelte/elements'
     import { getLocker, type LockKey } from 'svelte-lock'
-    import { derived, type Readable, readable, writable } from 'svelte/store'
+    import { derived, writable } from 'svelte/store'
 
     export let runningBy: LockKey | null = null
     export let lockedBy: LockKey | null = null
     export let handle: MouseEventHandler<HTMLButtonElement> | null = null
-
-    type ButtonState = 'idle' | 'locked' | 'running'
-    type ActionResult = 'successful' | undefined
 
     function generateKeys (key: LockKey | null) {
         return key ? [key] : []
