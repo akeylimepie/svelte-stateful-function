@@ -16,5 +16,5 @@
 </script>
 
 <div>
-    <StatefulButton {...third}>third</StatefulButton>
+    <StatefulButton {...third} successMessage='great success!'>third</StatefulButton>
 </div>

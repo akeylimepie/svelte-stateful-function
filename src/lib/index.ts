@@ -1,4 +1,4 @@
-import { readable } from 'svelte/store'
+import { readable, readonly, writable } from 'svelte/store'
 import { getLocker, type LockKey } from 'svelte-lock'
 
 type Callback = () => void
@@ -19,14 +19,18 @@ export function stateful<ArgumentsType extends any[]> (fn: (...args: ArgumentsTy
     const lockKeys = [...(options.lock || []), runKey]
     const observedKeys = [...lockKeys, ...(options.lockedBy || [])]
 
+    const isSuccessful = writable(false)
+
     return {
         isLocked: locker.observe(readable(observedKeys)),
         isRunning: locker.observe(readable([runKey])),
+        isSuccessful: readonly(isSuccessful),
         handle: async (...args: ArgumentsType) => {
             if (locker.isLocked(observedKeys))
                 return
 
             const release = locker.lock(lockKeys)
+            isSuccessful.set(false)
 
             try {
                 options.onStart?.()
@@ -37,6 +41,7 @@ export function stateful<ArgumentsType extends any[]> (fn: (...args: ArgumentsTy
 
             try {
                 await fn(...args)
+                isSuccessful.set(true)
                 options.onSuccess?.()
             } catch (e) {
                 release()
