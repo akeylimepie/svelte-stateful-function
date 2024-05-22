@@ -3,6 +3,8 @@
     import { stateful } from '$lib'
     import Button from './Button.svelte'
     import OtherButton from './OtherButton.svelte'
+    import { handle } from './utils/handle'
+    import AdvanceButtons from './AdvanceButtons.svelte'
 
     initLockContext()
 
@@ -15,22 +17,8 @@
         handle: firstHandle,
         isRunning: isFirstRunning,
         isLocked: isFirstLocked,
-        runKey: firstRunKey
-    } = stateful((e: MouseEvent) => {
-        console.log(e)
-        return new Promise<Date>((resolve, reject) => {
-            console.log('wait')
-
-            setTimeout(() => {
-                if (failure)
-                    reject()
-
-                console.log('done')
-                resolve(new Date())
-            }, 1000)
-        }).then((result) => {
-            console.log(result)
-        })
+    } = stateful(() => {
+        return handle(failure)
     }, {
         lock: [lockKey],
         lockedBy: [commonKey],
@@ -44,34 +32,8 @@
         handle: secondHandle,
         isRunning: isSecondRunning,
         isLocked: isSecondLocked,
-        runKey: secondRunKey
-    } = stateful((e: MouseEvent) => {
-        console.log(e)
-        return new Promise<void>((resolve) => {
-            console.log('wait')
-
-            setTimeout(() => {
-                console.log('done')
-                resolve()
-            }, 1000)
-        })
-    }, {
-        lock: [lockKey],
-        lockedBy: [commonKey],
-        onStart: () => console.log('second start'),
-        onFinish: () => console.log('second finish')
-    })
-
-    const third = stateful((e: MouseEvent) => {
-        console.log(e)
-        return new Promise<void>((resolve) => {
-            console.log('wait')
-
-            setTimeout(() => {
-                console.log('done')
-                resolve()
-            }, 1000)
-        })
+    } = stateful(() => {
+        return handle(failure)
     }, {
         lock: [lockKey],
         lockedBy: [commonKey],
@@ -81,6 +43,7 @@
 
     let allowHandle = true
     let failure = false
+    let advanced = false
 
     $: if (allowHandle) {
         locker.release([commonKey])
@@ -88,21 +51,21 @@
         locker.lock([commonKey])
     }
 
-    let firstThirdLockKey = Symbol()
-    let secondThirdLockKey = Symbol()
+    let firstFourthLockKey = Symbol()
+    let secondFourthLockKey = Symbol()
 
-    let lockThird = false
-    let swapLockThird = false
+    let lockFourth = false
+    let swapLockFourth = false
 
-    let thirdLockKey = swapLockThird ? secondThirdLockKey : firstThirdLockKey
+    let fourthLockKey = swapLockFourth ? secondFourthLockKey : firstFourthLockKey
 
-    $: if (lockThird) {
-        locker.lock([firstThirdLockKey])
+    $: if (lockFourth) {
+        locker.lock([firstFourthLockKey])
     } else {
-        locker.release([firstThirdLockKey])
+        locker.release([firstFourthLockKey])
     }
 
-    $: thirdLockKey = swapLockThird ? secondThirdLockKey : firstThirdLockKey
+    $: fourthLockKey = swapLockFourth ? secondFourthLockKey : firstFourthLockKey
 </script>
 
 <label>
@@ -113,25 +76,37 @@
     <input type="checkbox" bind:checked={failure}> failure
 </label>
 
-<div>
-    <Button locked={$isFirstLocked} running={$isFirstRunning} handle={firstHandle}
-            runKey={firstRunKey}>first
-    </Button>
-</div>
-<div>
-    <Button locked={$isSecondLocked} running={$isSecondRunning} handle={secondHandle}
-            runKey={secondRunKey}>first
-    </Button>
-</div>
-
 <label>
-    <input type="checkbox" bind:checked={lockThird}> lock original third
-</label>
-
-<label>
-    <input type="checkbox" bind:checked={swapLockThird}> swap third locking key
+    <input type="checkbox" bind:checked={advanced}> advanced
 </label>
 
 <div>
-    <OtherButton lockedBy={thirdLockKey}>third</OtherButton>
+    <div>
+        <Button isLocked={$isFirstLocked} isRunning={$isFirstRunning} handle={firstHandle}>first
+        </Button>
+    </div>
+    <div>
+        <Button isLocked={$isSecondLocked} isRunning={$isSecondRunning} handle={secondHandle}>second
+        </Button>
+    </div>
 </div>
+
+<br/>
+
+<div>
+    <label>
+        <input type="checkbox" bind:checked={lockFourth}> lock original fourth
+    </label>
+
+    <label>
+        <input type="checkbox" bind:checked={swapLockFourth}> swap fourth locking key
+    </label>
+
+    <div>
+        <OtherButton lockedBy={fourthLockKey}>fourth</OtherButton>
+    </div>
+</div>
+
+{#if advanced}
+    <AdvanceButtons {lockKey} {commonKey}/>
+{/if}

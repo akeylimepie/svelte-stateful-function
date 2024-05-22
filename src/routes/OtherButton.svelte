@@ -27,11 +27,8 @@
     }, false)
 
     const isLocked = derived([isLockedByKey], (values, set) => {
-        console.log('derived', isLockedByKey)
         set(!!values.some((value) => value))
     }, false)
-
-    $: console.log($isLockedByKey)
 </script>
 <button on:click={handle}>
     <slot/>
