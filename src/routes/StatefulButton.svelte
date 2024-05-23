@@ -1,12 +1,23 @@
 <script lang="ts">
     import type { MouseEventHandler } from 'svelte/elements'
-    import type { Readable } from 'svelte/store'
+    import { writable } from 'svelte/store'
 
-    export let isLocked: Readable<boolean>
-    export let isRunning: Readable<boolean>
-    export let isSuccess: Readable<boolean>
+    export let isLocked: boolean
+    export let isRunning: boolean
     export let successMessage: string = ''
     export let handle: MouseEventHandler<HTMLButtonElement>
+
+    export function foobar () {
+        console.log('foobar')
+    }
+
+    const isLockedStore = writable(isLocked)
+    $: $isLockedStore = isLocked
+
+    const isRunningStore = writable(isRunning)
+    $: $isRunningStore = isRunning
+
+    const isSuccess = writable(false)
 
     $: console.log('is success', $isSuccess)
 
@@ -28,8 +39,8 @@
 </script>
 <button on:click={handle}>
     <slot/>
-    {#if $isLocked}(locked){/if}
-    {#if $isRunning}(running){/if}
+    {#if $isLockedStore}(locked){/if}
+    {#if $isRunningStore}(running){/if}
 </button>
 
 {#if successOverflow}{successMessage}{/if}

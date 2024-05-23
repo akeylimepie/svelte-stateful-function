@@ -3,7 +3,7 @@
     import { stateful } from '$lib'
     import Button from './Button.svelte'
     import OtherButton from './OtherButton.svelte'
-    import { handle } from './utils/handle'
+    import { action } from './utils/action'
     import AdvanceButtons from './AdvanceButtons.svelte'
 
     initLockContext()
@@ -18,7 +18,7 @@
         isRunning: isFirstRunning,
         isLocked: isFirstLocked,
     } = stateful(() => {
-        return handle(failure)
+        return action(failure)
     }, {
         lock: [lockKey],
         lockedBy: [commonKey],
@@ -33,7 +33,7 @@
         isRunning: isSecondRunning,
         isLocked: isSecondLocked,
     } = stateful(() => {
-        return handle(failure)
+        return action(failure)
     }, {
         lock: [lockKey],
         lockedBy: [commonKey],
