@@ -17,14 +17,17 @@ type Options = {
 }>
 
 function executeListeners (listeners: EventListeners, eventName: keyof EventListeners) {
-    listeners[eventName].forEach((callback) => {
-        try {
-            callback()
-        } catch (e) {
-            console.log(e)
-        }
-    })
-
+    try {
+        listeners[eventName].forEach((callback) => {
+            try {
+                callback()
+            } catch (e) {
+                console.log(e)
+            }
+        })
+    } catch (e) {
+        throw e
+    }
 }
 
 function addListeners (listeners: EventListeners, eventName: keyof EventListeners, callback: Function) {
@@ -69,33 +72,19 @@ export function stateful<ArgumentsType extends any[]> (fn: (...args: ArgumentsTy
 
             const release = locker.lock(lockKeys)
 
-            try {
-                executeListeners(listeners, 'onStart')
-            } catch (e) {
-                release()
-                throw e
-            }
+            executeListeners(listeners, 'onStart')
 
             try {
                 await fn(...args)
+                release()
                 executeListeners(listeners, 'onSuccess')
             } catch (e) {
                 release()
-                try {
-                    executeListeners(listeners, 'onFailure')
-                } catch (e) {
-                    throw e
-                }
+                executeListeners(listeners, 'onFailure')
                 throw e
             }
 
-            try {
-                executeListeners(listeners, 'onFinish')
-            } catch (e) {
-                throw e
-            } finally {
-                release()
-            }
+            executeListeners(listeners, 'onFinish')
         }
     }
 }
