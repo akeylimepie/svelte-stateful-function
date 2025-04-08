@@ -1,112 +1,62 @@
 <script lang="ts">
-    import { getLocker, initLockContext } from 'svelte-lock'
     import { stateful } from '$lib'
-    import Button from './Button.svelte'
-    import OtherButton from './OtherButton.svelte'
     import { action } from './utils/action'
-    import AdvanceButtons from './AdvanceButtons.svelte'
 
-    initLockContext()
-
-    const locker = getLocker()
-
-    const commonKey = Symbol()
-    const lockKey = Symbol()
-
-    const {
-        handle: firstHandle,
-        isRunning: isFirstRunning,
-        isLocked: isFirstLocked,
-    } = stateful(() => {
-        return action(failure)
+    const first = stateful(() => {
+        return action(failure, 2000)
     }, {
-        lock: [lockKey],
-        lockedBy: [commonKey],
-        onStart: () => {console.log('first start')},
-        onFinish: () => {console.log('first finish')},
-        onSuccess: () => {console.log('first success')},
-        onFailure: () => {console.log('first failure')},
+        get debounce() {
+            return debounce ? debounceValue : 0
+        }
     })
 
-    const {
-        handle: secondHandle,
-        isRunning: isSecondRunning,
-        isLocked: isSecondLocked,
-    } = stateful(() => {
-        return action(failure)
-    }, {
-        lock: [lockKey],
-        lockedBy: [commonKey],
-        onStart: () => console.log('second start'),
-        onFinish: () => console.log('second finish')
-    })
+    let query = $state('')
+    let results = $state([])
 
-    let allowHandle = true
-    let failure = false
-    let advanced = false
+    const search = stateful(async (query: string) => {
+        results = await fetch(`/api/search?q=${encodeURIComponent(query)}`).then(res => res.json());
+    }, { debounce: 300 });
 
-    $: if (allowHandle) {
-        locker.release([commonKey])
-    } else {
-        locker.lock([commonKey])
-    }
-
-    let firstFourthLockKey = Symbol()
-    let secondFourthLockKey = Symbol()
-
-    let lockFourth = false
-    let swapLockFourth = false
-
-    let fourthLockKey = swapLockFourth ? secondFourthLockKey : firstFourthLockKey
-
-    $: if (lockFourth) {
-        locker.lock([firstFourthLockKey])
-    } else {
-        locker.release([firstFourthLockKey])
-    }
-
-    $: fourthLockKey = swapLockFourth ? secondFourthLockKey : firstFourthLockKey
+    let failure = $state(false)
+    let debounce = $state(false)
+    let debounceValue = $state(500)
 </script>
-
-<label>
-    <input type="checkbox" bind:checked={allowHandle}> allow handle
-</label>
 
 <label>
     <input type="checkbox" bind:checked={failure}> failure
 </label>
 
-<label>
-    <input type="checkbox" bind:checked={advanced}> advanced
-</label>
-
-<div>
-    <div>
-        <Button isLocked={$isFirstLocked} isRunning={$isFirstRunning} handle={firstHandle}>first
-        </Button>
-    </div>
-    <div>
-        <Button isLocked={$isSecondLocked} isRunning={$isSecondRunning} handle={secondHandle}>second
-        </Button>
-    </div>
-</div>
-
-<br/>
-
-<div>
+<div class="slider">
     <label>
-        <input type="checkbox" bind:checked={lockFourth}> lock original fourth
+        <input type="checkbox" bind:checked={debounce}> debounce
     </label>
 
-    <label>
-        <input type="checkbox" bind:checked={swapLockFourth}> swap fourth locking key
-    </label>
-
-    <div>
-        <OtherButton lockedBy={fourthLockKey}>fourth</OtherButton>
-    </div>
+    <input bind:value={debounceValue} type="range" min="0" max="5000" step="100"/>
+    {debounceValue}ms
 </div>
 
-{#if advanced}
-    <AdvanceButtons {lockKey} {commonKey}/>
+<div>
+    <button onclick={first}>Run function</button> {first.status}
+</div>
+
+<input bind:value={query} oninput={() => search(query)}/>
+
+{#if search.isActive}
+    <p>Searching...</p>
+{:else if search.isIdle}
+    <p>Type to search</p>
 {/if}
+
+<ul>
+    {#each results as result}
+        <li>{result}</li>
+    {/each}
+</ul>
+
+<style>
+    .slider {
+        display: inline flex;
+        gap: 1ch;
+        align-items: center;
+    }
+</style>

@@ -1,58 +1,137 @@
-# create-svelte
+# svelte-stateful-function
 
-Everything you need to build a Svelte library, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte).
+[![Version](https://img.shields.io/npm/v/svelte-stateful-function)](https://www.npmjs.com/package/svelte-stateful-function)
+[![Downloads](https://img.shields.io/npm/dm/svelte-stateful-function)](https://www.npmjs.com/package/svelte-stateful-function)
 
-Read more about creating a library [in the docs](https://kit.svelte.dev/docs/packaging).
+A lightweight utility to wrap functions with reactive status, debounce, and cancellation for Svelte 5.
 
-## Creating a project
+---
 
-If you're seeing this, you've probably already done this step. Congrats!
-
-```bash
-# create a new project in the current directory
-npm create svelte@latest
-
-# create a new project in my-app
-npm create svelte@latest my-app
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+## Installation
 
 ```bash
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+npm install svelte-stateful-function
 ```
 
-Everything inside `src/lib` is part of your library, everything inside `src/routes` can be used as a showcase or preview app.
+---
 
-## Building
+## Usage
 
-To build your library:
+```svelte
+<script lang="ts">
+    import { stateful } from 'svelte-stateful-function';
+    
+    let query = $state('')
+    let results = $state([])
 
-```bash
-npm run package
+    const search = stateful(async (query: string) => {
+        results = await fetch(`/api/search?q=${encodeURIComponent(query)}`).then(res => res.json());
+    }, { debounce: 300 });
+</script>
+
+<input bind:value={query} oninput={() => search(query)} />
+
+{#if search.isIdle}
+  <p>Type to search</p>
+{:else}
+  <p>Searching...</p>
+{/if}
+
+<ul>
+    {#each results as result}
+        <li>{result}</li>
+    {/each}
+</ul>
 ```
 
-To create a production version of your showcase app:
+---
 
-```bash
-npm run build
+## Reactive State
+
+Each `stateful()` call returns a function with these **reactive properties**:
+
+```ts
+search.status;        // $state<'idle' | 'scheduled' | 'executing'>
+search.isIdle;        // $derived<boolean>
+search.isScheduled;   // $derived<boolean>
+search.isExecuting;   // $derived<boolean>
+search.isActive;      // $derived<boolean>
 ```
 
-You can preview the production build with `npm run preview`.
+You can react to changes in your component logic:
 
-> To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
-
-## Publishing
-
-Go into the `package.json` and give your package the desired name through the `"name"` option. Also consider adding a `"license"` field and point it to a `LICENSE` file which you can create from a template (one popular option is the [MIT license](https://opensource.org/license/mit/)).
-
-To publish your library to [npm](https://www.npmjs.com):
-
-```bash
-npm publish
+```ts
+$effect(() => {
+  if (search.status === 'scheduled') {
+    console.log('Waiting to search...');
+  }
+});
 ```
+
+Or in markup:
+
+```svelte
+{#if search.isExecuting}
+  <p>Searching in progress...</p>
+{/if}
+```
+
+---
+
+## Options
+
+| Option             | Type      | Default | Description                                              |
+|--------------------|-----------|---------|----------------------------------------------------------|
+| `debounce`         | `number`  | `—`     | Debounce delay in ms before executing                   |
+| `allowConcurrent`  | `boolean` | `false` | Allow concurrent executions if already running          |
+
+---
+
+## API
+
+### `stateful(fn, options?)`
+
+The wrapped function can be either synchronous or asynchronous — both `fn()` and `async fn()` are supported.
+
+Returns a callable function with attached metadata:
+
+```ts
+type Status = 'idle' | 'scheduled' | 'executing';
+
+interface StatefulFunction {
+  status: Status;
+  cancelScheduled(): void;
+  isIdle: boolean;
+  isScheduled: boolean;
+  isExecuting: boolean;
+  isActive: boolean;
+}
+```
+
+---
+
+## Cancellation
+
+You can cancel a scheduled (when using debounce) call with:
+
+```ts
+search.cancelScheduled();
+```
+
+If the status is `'scheduled'`, it resets back to `'idle'`.
+
+> If `debounce` is not enabled, calling `cancelScheduled()` has no effect — since nothing is scheduled to run later.
+
+To prevent scheduled calls from executing after a component is destroyed, you should also manually call `cancelScheduled()` inside `onDestroy()`:
+
+```ts 
+onDestroy(() => {
+    search.cancelScheduled();
+});
+```
+
+---
+
+## License
+
+MIT
