@@ -2,12 +2,24 @@
     import { stateful } from '$lib'
     import { action } from './utils/action'
 
-    const first = stateful(() => {
+    const fn = stateful(() => {
         return action(failure, 2000)
     }, {
         get debounce() {
             return debounce ? debounceValue : 0
         }
+    })
+
+    const fnStatus = $derived.by(() => {
+        if (fn.pending) {
+            return 'pending'
+        }
+
+        if (fn.scheduled) {
+            return 'scheduled'
+        }
+
+        return 'idle'
     })
 
     let query = $state('')
@@ -26,7 +38,7 @@
     const concurrency = stateful(async (i) => {
         concurrencyList[i] = 'pending'
 
-        const delay = Math.floor(Math.random() * 10 + 1) * 1000
+        const delay = Math.floor(Math.random() * 5 + 1) * 1000
         try {
             await action(failure, delay);
         } finally {
@@ -55,20 +67,20 @@
 </div>
 
 <div>
-    {#if first.isScheduled}
-        <button onclick={first.cancelScheduled}>Cancel scheduled</button>
+    {#if fn.scheduled}
+        <button onclick={fn.cancelScheduled}>Cancel scheduled</button>
     {:else }
-        <button onclick={first}>Run function</button>
+        <button onclick={fn}>Run function</button>
     {/if}
 
-    {first.status}
+    {fnStatus}
 </div>
 
 <input bind:value={query} oninput={() => search(query)}/>
 
-{#if search.isActive}
+{#if search.busy}
     <p>Searching...</p>
-{:else if search.isIdle}
+{:else if !search.pending}
     <p>Type to search</p>
 {/if}
 
@@ -78,7 +90,7 @@
     {/each}
 </ul>
 
-<button onclick={multipleRuns}>Run concurrency</button> {concurrency.status}
+<button onclick={multipleRuns}>Run concurrency</button> {concurrency.pending}
 
 <ul>
     {#each concurrencyList as item, i (i)}

@@ -22,11 +22,11 @@ describe('stateful', () => {
         const wrapped = stateful(fn);
 
         const result = wrapped();
-        expect(wrapped.status).toBe('executing');
+        expect(wrapped.pending).gt(0);
         await result;
 
         expect(calls).toEqual(['start', 'done']);
-        expect(wrapped.status).toBe('idle');
+        expect(wrapped.pending).eq(0);
     });
 
     it('debounces calls correctly', async () => {
@@ -43,12 +43,13 @@ describe('stateful', () => {
             wrapped(count++)
         ])
 
-        expect(wrapped.status).toBe('scheduled');
+        expect(wrapped.pending).eq(0);
+        expect(wrapped.scheduled).not.eq(null);
         await result;
 
         expect(fn).toHaveBeenCalledTimes(1);
         expect(calls).toEqual(['debounced 3']);
-        expect(wrapped.status).toBe('idle');
+        expect(wrapped.pending).eq(0);
     });
 
     it('cancels scheduled call', async () => {
@@ -59,7 +60,7 @@ describe('stateful', () => {
         const result = wrapped();
         wrapped.cancelScheduled();
 
-        expect(wrapped.status).toBe('idle');
+        expect(wrapped.pending).eq(0);
         await result;
 
         expect(fn).toHaveBeenCalledTimes(0);

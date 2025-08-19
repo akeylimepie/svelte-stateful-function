@@ -31,10 +31,10 @@ npm install svelte-stateful-function
 
 <input bind:value={query} oninput={() => search(query)} />
 
-{#if search.isIdle}
-  <p>Type to search</p>
-{:else}
+{#if search.busy}
   <p>Searching...</p>
+{:else}
+  <p>Type to search</p>
 {/if}
 
 <ul>
@@ -51,18 +51,16 @@ npm install svelte-stateful-function
 Each `stateful()` call returns a function with these **reactive properties**:
 
 ```ts
-search.status;        // $state<'idle' | 'scheduled' | 'executing'>
-search.isIdle;        // $derived<boolean>
-search.isScheduled;   // $derived<boolean>
-search.isExecuting;   // $derived<boolean>
-search.isActive;      // $derived<boolean>
+search.pending;        // number of functions currently running
+search.scheduled;   // bool; true if a debounce is currently active
+search.busy;      // bool; true if pending or scheduled 
 ```
 
 You can react to changes in your component logic:
 
 ```ts
 $effect(() => {
-  if (search.status === 'scheduled') {
+  if (search.scheduled) {
     console.log('Waiting to search...');
   }
 });
@@ -71,7 +69,7 @@ $effect(() => {
 Or in markup:
 
 ```svelte
-{#if search.isExecuting}
+{#if search.pending}
   <p>Searching in progress...</p>
 {/if}
 ```
@@ -96,15 +94,12 @@ The wrapped function can be either synchronous or asynchronous — both `fn()` a
 Returns a callable function with attached metadata:
 
 ```ts
-type Status = 'idle' | 'scheduled' | 'executing';
-
 interface StatefulFunction {
-  status: Status;
-  cancelScheduled(): void;
-  isIdle: boolean;
-  isScheduled: boolean;
-  isExecuting: boolean;
-  isActive: boolean;
+    pending: number;
+    scheduled: boolean;
+    active: boolean;
+
+    cancelScheduled(): void;
 }
 ```
 

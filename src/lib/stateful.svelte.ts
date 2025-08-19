@@ -1,17 +1,13 @@
-export type Status = 'idle' | 'scheduled' | 'executing';
-
 export interface StatefulOptions {
     debounce?: number;
     allowConcurrent?: boolean;
 }
 
 export type StatefulFunction = {
-    status: Status;
+    pending: number;
+    scheduled: boolean;
+    busy: boolean;
     cancelScheduled(): void;
-    isIdle: boolean;
-    isScheduled: boolean;
-    isExecuting: boolean;
-    isActive: boolean;
 };
 
 /**
@@ -23,23 +19,6 @@ export function stateful<ArgumentsType extends any[]>(
 ): ((...args: ArgumentsType) => Promise<void>) & StatefulFunction {
     let pending = $state(0);
     let scheduled = $state<ReturnType<typeof setTimeout> | null>(null);
-
-    let status = $derived.by<Status>(()=>{
-        if(pending) {
-            return 'executing';
-        }
-
-        if(scheduled) {
-            return 'scheduled';
-        }
-
-        return 'idle'
-    });
-
-    const isIdle = $derived(status === 'idle');
-    const isScheduled = $derived(status === 'scheduled');
-    const isExecuting = $derived(status === 'executing');
-    const isActive = $derived(isScheduled || isExecuting);
 
     let pendingResolve: (() => void) | null = null;
 
@@ -54,7 +33,7 @@ export function stateful<ArgumentsType extends any[]>(
     };
 
     const wrapper = (...args: ArgumentsType): Promise<void> => {
-        if (!options.debounce && status === 'executing' && !options.allowConcurrent) {
+        if (!options.debounce && pending && !options.allowConcurrent) {
             return Promise.resolve();
         }
 
@@ -64,10 +43,6 @@ export function stateful<ArgumentsType extends any[]>(
 
             return new Promise<void>((resolve, reject) => {
                 pendingResolve = resolve;
-
-                if (status !== 'executing') {
-                    status = 'scheduled';
-                }
 
                 scheduled = setTimeout(() => {
                     scheduled = null;
@@ -81,11 +56,9 @@ export function stateful<ArgumentsType extends any[]>(
     };
 
     Object.defineProperties(wrapper, {
-        status: { get: () => status },
-        isIdle: { get: () => isIdle },
-        isScheduled: { get: () => isScheduled },
-        isExecuting: { get: () => isExecuting },
-        isActive: { get: () => isActive },
+        pending: { get: () => pending },
+        scheduled: { get: () => scheduled !== null },
+        busy: { get: () => pending || scheduled !== null },
         cancelScheduled: {
             value() {
                 if (scheduled) {
