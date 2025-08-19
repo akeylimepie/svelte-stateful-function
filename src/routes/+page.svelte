@@ -20,6 +20,25 @@
     let failure = $state(false)
     let debounce = $state(false)
     let debounceValue = $state(500)
+
+    const concurrencyList = $state(Array(10).fill('idle'))
+
+    const concurrency = stateful(async (i) => {
+        concurrencyList[i] = 'pending'
+
+        const delay = Math.floor(Math.random() * 10 + 1) * 1000
+        try {
+            await action(failure, delay);
+        } finally {
+            concurrencyList[i] = 'idle'
+        }
+    }, { allowConcurrent: true })
+
+    function multipleRuns() {
+        for (let i = 0; i < concurrencyList.length; i++) {
+            concurrency(i)
+        }
+    }
 </script>
 
 <label>
@@ -36,7 +55,13 @@
 </div>
 
 <div>
-    <button onclick={first}>Run function</button> {first.status}
+    {#if first.isScheduled}
+        <button onclick={first.cancelScheduled}>Cancel scheduled</button>
+    {:else }
+        <button onclick={first}>Run function</button>
+    {/if}
+
+    {first.status}
 </div>
 
 <input bind:value={query} oninput={() => search(query)}/>
@@ -50,6 +75,14 @@
 <ul>
     {#each results as result}
         <li>{result}</li>
+    {/each}
+</ul>
+
+<button onclick={multipleRuns}>Run concurrency</button> {concurrency.status}
+
+<ul>
+    {#each concurrencyList as item, i (i)}
+        <li>{item}</li>
     {/each}
 </ul>
 

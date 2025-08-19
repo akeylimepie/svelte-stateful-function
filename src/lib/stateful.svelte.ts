@@ -21,22 +21,35 @@ export function stateful<ArgumentsType extends any[]>(
     fn: (...args: ArgumentsType) => void | Promise<void>,
     options: StatefulOptions = {}
 ): ((...args: ArgumentsType) => Promise<void>) & StatefulFunction {
-    let status = $state<Status>('idle');
+    let pending = $state(0);
+    let scheduled = $state<ReturnType<typeof setTimeout> | null>(null);
+
+    let status = $derived.by<Status>(()=>{
+        if(pending) {
+            return 'executing';
+        }
+
+        if(scheduled) {
+            return 'scheduled';
+        }
+
+        return 'idle'
+    });
 
     const isIdle = $derived(status === 'idle');
     const isScheduled = $derived(status === 'scheduled');
     const isExecuting = $derived(status === 'executing');
     const isActive = $derived(isScheduled || isExecuting);
 
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     let pendingResolve: (() => void) | null = null;
 
     const run = async (args: ArgumentsType): Promise<void> => {
-        status = 'executing';
+        pending++
+
         try {
             await fn(...args);
         } finally {
-            status = debounceTimer ? 'scheduled' : 'idle';
+            pending--;
         }
     };
 
@@ -46,7 +59,7 @@ export function stateful<ArgumentsType extends any[]>(
         }
 
         if (options.debounce) {
-            if (debounceTimer) clearTimeout(debounceTimer);
+            if (scheduled) clearTimeout(scheduled);
             pendingResolve?.()
 
             return new Promise<void>((resolve, reject) => {
@@ -56,8 +69,8 @@ export function stateful<ArgumentsType extends any[]>(
                     status = 'scheduled';
                 }
 
-                debounceTimer = setTimeout(() => {
-                    debounceTimer = null;
+                scheduled = setTimeout(() => {
+                    scheduled = null;
                     pendingResolve = null;
                     void run(args).then(resolve).catch(reject);
                 }, options.debounce);
@@ -75,16 +88,13 @@ export function stateful<ArgumentsType extends any[]>(
         isActive: { get: () => isActive },
         cancelScheduled: {
             value() {
-                if (debounceTimer) {
-                    clearTimeout(debounceTimer);
-                    debounceTimer = null;
+                if (scheduled) {
+                    clearTimeout(scheduled);
+                    scheduled = null;
                 }
                 if (pendingResolve) {
                     pendingResolve();
                     pendingResolve = null;
-                }
-                if (status === 'scheduled') {
-                    status = 'idle';
                 }
             },
         },
