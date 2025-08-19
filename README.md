@@ -113,8 +113,6 @@ You can cancel a scheduled (when using debounce) call with:
 search.cancelScheduled();
 ```
 
-If the status is `'scheduled'`, it resets back to `'idle'`.
-
 > If `debounce` is not enabled, calling `cancelScheduled()` has no effect — since nothing is scheduled to run later.
 
 To prevent scheduled calls from executing after a component is destroyed, you should also manually call `cancelScheduled()` inside `onDestroy()`:
